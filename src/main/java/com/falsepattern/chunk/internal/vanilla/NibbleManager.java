@@ -32,7 +32,7 @@ import net.minecraft.world.chunk.storage.ExtendedBlockStorage;
 
 import java.nio.ByteBuffer;
 
-public abstract class NibbleManager extends VanillaManager implements DataManager.PacketDataManager {
+public abstract class NibbleManager extends VanillaManager implements DataManager.PacketDataManager, DataManager.CubicPacketDataManager {
     public static final int BYTES_PER_SUBCHUNK = Common.BLOCKS_PER_SUBCHUNK / 2;
 
     protected abstract NibbleArray getNibbleArray(ExtendedBlockStorage subChunk);
@@ -66,5 +66,20 @@ public abstract class NibbleManager extends VanillaManager implements DataManage
                 }
             }
         }
+    }
+
+    @Override
+    public int maxPacketSizeCubic() {
+        return BYTES_PER_SUBCHUNK;
+    }
+
+    @Override
+    public void writeToBuffer(Chunk chunk, ExtendedBlockStorage blockStorage, ByteBuffer buffer) {
+        buffer.put(getNibbleArray(blockStorage).data, 0, BYTES_PER_SUBCHUNK);
+    }
+
+    @Override
+    public void readFromBuffer(Chunk chunk, ExtendedBlockStorage blockStorage, ByteBuffer buffer) {
+        buffer.get(getNibbleArray(blockStorage).data, 0, BYTES_PER_SUBCHUNK);
     }
 }

@@ -40,7 +40,7 @@ import java.nio.ByteBuffer;
 import static com.falsepattern.chunk.internal.Common.BLOCKS_PER_SUBCHUNK;
 import static com.falsepattern.chunk.internal.Common.SUBCHUNKS_PER_CHUNK;
 
-public class BlockIDManager extends VanillaManager implements DataManager.PacketDataManager, DataManager.BlockPacketDataManager, DataManager.SubChunkDataManager {
+public class BlockIDManager extends VanillaManager implements DataManager.PacketDataManager, DataManager.CubicPacketDataManager, DataManager.BlockPacketDataManager, DataManager.SubChunkDataManager {
     private static final int LSB_BYTES_PER_SUBCHUNK = BLOCKS_PER_SUBCHUNK;
     private static final int MSB_BYTES_PER_SUBCHUNK = BLOCKS_PER_SUBCHUNK / 2;
     private static final int HEADER_SIZE = 2;
@@ -97,6 +97,36 @@ public class BlockIDManager extends VanillaManager implements DataManager.Packet
                     subChunk.setBlockMSBArray(null);
                 }
             }
+        }
+    }
+
+    @Override
+    public int maxPacketSizeCubic() {
+        return HEADER_SIZE + LSB_BYTES_PER_SUBCHUNK + MSB_BYTES_PER_SUBCHUNK;
+    }
+
+    @Override
+    public void writeToBuffer(Chunk chunk, ExtendedBlockStorage blockStorage, ByteBuffer buffer) {
+        buffer.put(blockStorage.getBlockLSBArray());
+
+        if (blockStorage.getBlockMSBArray() != null) {
+            buffer.put((byte) 1);
+            buffer.put(blockStorage.getBlockMSBArray().data);
+        } else {
+            buffer.put((byte) 0);
+        }
+    }
+
+    @Override
+    public void readFromBuffer(Chunk chunk, ExtendedBlockStorage blockStorage, ByteBuffer buffer) {
+        buffer.get(blockStorage.getBlockLSBArray());
+
+        if (buffer.get() != 0) {
+            if (blockStorage.getBlockMSBArray() == null) {
+                blockStorage.createBlockMSBArray();
+            }
+
+            buffer.get(blockStorage.getBlockMSBArray().data);
         }
     }
 

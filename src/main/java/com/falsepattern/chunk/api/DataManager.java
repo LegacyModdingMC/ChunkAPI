@@ -22,6 +22,7 @@
 
 package com.falsepattern.chunk.api;
 
+import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -84,6 +85,9 @@ public interface DataManager {
          * Serializes your data into a packet.
          *
          * @param chunk The chunk to serialize.
+         * @param subChunkMask The mask that controls which subchunks need to be serialized. This will be 0 when cubic chunks is
+         *                     present - only chunk-specific information (like biomes) should be sent in this case.
+         * @param forceUpdate True when the chunk is first synced.
          */
         @Contract(mutates = "param4")
         void writeToBuffer(Chunk chunk, int subChunkMask, boolean forceUpdate, ByteBuffer buffer);
@@ -91,11 +95,53 @@ public interface DataManager {
         /**
          * Deserializes your data from a packet.
          *
-         * @param chunk  The chunk to deserialize.
-         * @param buffer The packet buffer to read from.
+         * @param chunk The chunk to deserialize.
+         * @param subChunkMask The mask that controls which subchunks need to be deserialized. This will be 0 when cubic chunks is
+         *                     present - only chunk-specific information (like biomes) should be sent in this case.
+         * @param forceUpdate True when the chunk is first synced.
          */
         @Contract(mutates = "param1,param4")
         void readFromBuffer(Chunk chunk, int subChunkMask, boolean forceUpdate, ByteBuffer buffer);
+    }
+
+    /**
+     * A cube-specific variant of {@link PacketDataManager}. This is only used by cubic chunks.
+     *
+     * @author RecursivePineapple
+     * @since 0.7.1
+     * @apiNote Cubes, subchunks, and ExtendedBlockStorages are equivalent. A cube is a subchunk and a cube contains an EBS.
+     * To keep dependencies simple, cube-specific information is not available to this interface, but a cube's location can be
+     * retrieved by combining the chunk location and the EBS Y level. Note that the EBS's Y level can be <0 and >= 16.
+     */
+    @ApiStatus.Experimental
+    interface CubicPacketDataManager extends DataManager {
+
+        /**
+         * @return The maximum amount of bytes your data can take up in a packet.
+         *
+         * @implSpec This is used to determine the size of the packet compression/decompression buffer.
+         * Only called ONCE, during registration!
+         */
+        @Contract(pure = true)
+        int maxPacketSizeCubic();
+
+        /**
+         * Serializes your data into a packet.
+         *
+         * @param chunk The chunk that contains the subchunk.
+         * @param blockStorage The subchunk (cube) that was updated.
+         */
+        @Contract(mutates = "param3")
+        void writeToBuffer(Chunk chunk, ExtendedBlockStorage blockStorage, ByteBuffer buffer);
+
+        /**
+         * Deserializes your data from a packet.
+         *
+         * @param chunk The chunk that contains the subchunk.
+         * @param blockStorage The subchunk (cube) that was updated.
+         */
+        @Contract(mutates = "param1,param2,param3")
+        void readFromBuffer(Chunk chunk, ExtendedBlockStorage blockStorage, ByteBuffer buffer);
     }
 
     /**

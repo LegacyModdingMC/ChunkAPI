@@ -59,17 +59,25 @@ public class DataRegistryImpl {
     private static final Map<String, OrderedManager> managersUnordered = new HashMap<>();
     private static final SortedSet<OrderedManager> managers = new TreeSet<>();
     private static final DualMap<PacketManagerInfo> packetManagers = new DualMap<>();
+    private static final DualMap<CubicPacketManagerInfo> cubicPacketManagers = new DualMap<>();
     private static final DualMap<DataManager.BlockPacketDataManager> blockPacketManagers = new DualMap<>();
     private static final DualMap<DataManager.StorageDataManager> NBTManagers = new DualMap<>();
     private static final SortedMap<OrderedManager, DataManager.ChunkDataManager> chunkNBTManagers = new TreeMap<>();
     private static final SortedMap<OrderedManager, DataManager.SubChunkDataManager> subChunkNBTManagers = new TreeMap<>();
     private static final Set<String> disabledManagers = new HashSet<>();
     private static int maxPacketSize = 4;
+    private static int maxPacketSizeCubic = 4;
 
     @Data
     private static class PacketManagerInfo {
         public final int maxPacketSize;
         public final DataManager.PacketDataManager manager;
+    }
+
+    @Data
+    private static class CubicPacketManagerInfo {
+        public final int maxPacketSize;
+        public final DataManager.CubicPacketDataManager manager;
     }
 
     public static void registerDataManager(DataManager manager, int ordering) throws IllegalStateException, IllegalArgumentException {
@@ -100,6 +108,12 @@ public class DataRegistryImpl {
             val blockPacketManager = (DataManager.BlockPacketDataManager) manager;
             blockPacketManagers.put(ord, blockPacketManager);
         }
+        if (manager instanceof DataManager.CubicPacketDataManager) {
+            val cubicPacketManager = (DataManager.CubicPacketDataManager) manager;
+            val maxSize = cubicPacketManager.maxPacketSizeCubic();
+            maxPacketSizeCubic += 4 + id.getBytes(StandardCharsets.UTF_8).length + 4 + maxSize;
+            cubicPacketManagers.put(ord, new CubicPacketManagerInfo(maxSize, cubicPacketManager));
+        }
         if (manager instanceof DataManager.StorageDataManager) {
             NBTManagers.put(ord, (DataManager.StorageDataManager) manager);
             if (manager instanceof DataManager.ChunkDataManager) {
@@ -127,6 +141,10 @@ public class DataRegistryImpl {
                 val removed = packetManagers.remove(ord);
                 maxPacketSize -= 4 + id.getBytes(StandardCharsets.UTF_8).length + 4 + removed.maxPacketSize;
             }
+            if (cubicPacketManagers.containsKey(ord)) {
+                val removed = cubicPacketManagers.remove(ord);
+                maxPacketSizeCubic -= 4 + id.getBytes(StandardCharsets.UTF_8).length + 4 + removed.maxPacketSize;
+            }
             blockPacketManagers.remove(ord);
             chunkNBTManagers.remove(ord);
             subChunkNBTManagers.remove(ord);
@@ -139,6 +157,10 @@ public class DataRegistryImpl {
 
     public static int maxPacketSize() {
         return maxPacketSize;
+    }
+
+    public static int maxPacketSizeCubic() {
+        return maxPacketSizeCubic;
     }
 
     private static void writeString(ByteBuffer buffer, String string) {
@@ -177,6 +199,29 @@ public class DataRegistryImpl {
         }
     }
 
+    public static void readFromBufferCubic(Chunk chunk, ExtendedBlockStorage blockStorage, byte[] data) {
+        val buf = ByteBuffer.wrap(data);
+        buf.order(ByteOrder.LITTLE_ENDIAN);
+        int count = buf.getInt();
+        for (int i = 0; i < count; i++) {
+            val id = readString(buf);
+            val length = buf.getInt();
+            val managerInfo = cubicPacketManagers.get(id);
+            if (managerInfo == null) {
+                Common.LOG.error("Received data for unknown CubicPacketDataManager " + id + ". Skipping.");
+                buf.position(buf.position() + length);
+                continue;
+            }
+            if (length > managerInfo.maxPacketSize) {
+                Common.LOG.error("Received packet larger than max size for CubicPacketDataManager " + id + "! Continuing anyways, things might break!");
+            }
+            int start = buf.position();
+            val slice = createSlice(buf, start, length);
+            managerInfo.manager.readFromBuffer(chunk, blockStorage, slice);
+            buf.position(start + length);
+        }
+    }
+
     public static int writeToBuffer(Chunk chunk, int subChunkMask, boolean forceUpdate, byte[] data) {
         val buf = ByteBuffer.wrap(data);
         buf.order(ByteOrder.LITTLE_ENDIAN);
@@ -188,6 +233,24 @@ public class DataRegistryImpl {
             int start = buf.position() + 4;
             val slice = createSlice(buf, start, managerInfo.maxPacketSize);
             managerInfo.manager.writeToBuffer(chunk, subChunkMask, forceUpdate, slice);
+            int length = slice.position();
+            buf.putInt(length);
+            buf.position(start + length);
+        }
+        return buf.position();
+    }
+
+    public static int writeToBufferCubic(Chunk chunk, ExtendedBlockStorage blockStorage, byte[] data) {
+        val buf = ByteBuffer.wrap(data);
+        buf.order(ByteOrder.LITTLE_ENDIAN);
+        buf.putInt(cubicPacketManagers.size());
+        for (val pair : cubicPacketManagers.entrySet()) {
+            val ord = pair.getKey();
+            val managerInfo = pair.getValue();
+            writeString(buf, ord.id);
+            int start = buf.position() + 4;
+            val slice = createSlice(buf, start, managerInfo.maxPacketSize);
+            managerInfo.manager.writeToBuffer(chunk, blockStorage, slice);
             int length = slice.position();
             buf.putInt(length);
             buf.position(start + length);
