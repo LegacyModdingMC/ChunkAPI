@@ -53,8 +53,10 @@ public enum Mixin implements IMixins {
                common("base.PlayerInstanceMixin",
                       "base.S21PacketChunkDataMixin",
                       "base.S22PacketMultiBlockChangeMixin",
-                      "base.S23PacketBlockChangeMixin"),
-               client("vanilla.NetHandlerPlayClientMixin")),
+                      "base.S23PacketBlockChangeMixin",
+                      "base.AnvilChunkLoaderMixin"),
+               client("vanilla.NetHandlerPlayClientMixin",
+                      "vanilla.ChunkMixin")),
 
     Compat_LookingGlass(Phase.LATE,
                         require(LookingGlass),
