@@ -35,10 +35,7 @@ import org.intellij.lang.annotations.Language;
 import java.util.function.BooleanSupplier;
 
 import static com.falsepattern.chunk.internal.mixin.plugin.TargetMod.LookingGlass;
-import static com.falsepattern.chunk.internal.mixin.plugin.TargetMod.Spool;
-import static com.falsepattern.chunk.internal.mixin.plugin.fplib.MixinHelper.avoid;
 import static com.falsepattern.chunk.internal.mixin.plugin.fplib.MixinHelper.builder;
-import static com.falsepattern.chunk.internal.mixin.plugin.fplib.MixinHelper.mods;
 import static com.falsepattern.chunk.internal.mixin.plugin.fplib.MixinHelper.require;
 
 @RequiredArgsConstructor
@@ -58,12 +55,6 @@ public enum Mixin implements IMixins {
                       "base.S22PacketMultiBlockChangeMixin",
                       "base.S23PacketBlockChangeMixin"),
                client("vanilla.NetHandlerPlayClientMixin")),
-    
-    //from: https://github.com/BallOfEnergy1/ChunkAPI/commit/4f5c0e60e04b6892d206f5f5d93cb20ba6b45608
-    Core_NoSpool(Phase.EARLY,
-                 avoid(Spool),
-                 common("base.AnvilChunkLoaderMixin"),
-                 client("vanilla.ChunkMixin")),
 
     Compat_LookingGlass(Phase.LATE,
                         require(LookingGlass),
