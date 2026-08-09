@@ -1,5 +1,5 @@
 plugins {
-    id("com.falsepattern.fpgradle-mc") version("2.1.0")
+    id("com.falsepattern.fpgradle-mc") version("4.1.0")
 }
 
 group = "com.falsepattern"
@@ -36,6 +36,7 @@ minecraft_fp {
         }
         curseforge {
             projectId = "844484"
+            side = Both
         }
         modrinth {
             projectId = "y0vBUOla"
